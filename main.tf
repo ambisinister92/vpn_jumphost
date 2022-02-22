@@ -15,5 +15,16 @@ provider "aws" {
 }
 
 module "vpc" {
-  source = "./modules/vpc"
+  source             = "./modules/vpc"
+  vpc_cidr           = var.vpc_cidr
+  public_subnet_cidr = var.public_subnet_cidr
+  prvate_subnet_cidr = var.prvate_subnet_cidr
+}
+
+module "ec2" {
+  source        = "./modules/ec2"
+  amis          = var.amis
+  instance_type = var.instance_type
+  subnet_ids    = module.vpc.subnet_ids
+  sg_ids        = module.vpc.sg_ids
 }
