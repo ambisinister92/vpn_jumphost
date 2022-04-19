@@ -1,4 +1,13 @@
 terraform {
+
+  backend "s3" {
+    bucket         = "opnvpntest-terraform-state"
+    key            = "terraform.tfstate"
+    region         = "us-east-2"
+    encrypt        = true
+    dynamodb_table = "test-terraform-state-lock"
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -47,17 +56,27 @@ resource "aws_route53_zone" "test_r53z0ne" {
 }
 
 
-module "openvpn" {
-  source = "anugnes/openvpn/aws"
 
+module "openvpn" {
+  source = "github.com/tieto-cem/terraform-aws-openvpn?ref=v1.3.0" # update to the newset release tag
+
+  name              = "OpenVPN"
   ami               = var.openvpn.ami
-  domain            = var.r53domain_name
-  ebs_region        = var.region
-  ebs_size          = var.openvpn.ebs_size
+  region            = var.region
   instance_type     = var.openvpn.instance_type
   key_name          = var.aws_key_name
-  public_subnet_ids = module.vpc.public_subnets
-  route_zone_id     = aws_route53_zone.test_r53z0ne.id
-  vpc_cidr          = var.cidrList.vpc.cidr
   vpc_id            = module.vpc.vpc_id
+  subnet_id         = module.vpc.public_subnets[0]
+  cidr              = var.cidrList.vpc.cidr
+  source_dest_check = false
+  allow_nat         = false
+  allow_ssh_port    = true
+  ssh_cidr          = ["0.0.0.0/0"]
+  user_data         = ""
+  tags = {
+    Name = "OpenVPN"
+  }
+  volume_tags = {
+    Name = "OpenVPN"
+  }
 }
