@@ -43,23 +43,8 @@ module "vpc" {
 }
 
 
-resource "aws_route53_zone" "test_r53z0ne" {
-  name = var.r53domain_name
-
-  vpc {
-    vpc_id = module.vpc.vpc_id
-  }
-
-  tags = {
-    Name = "test_r53z0ne"
-  }
-}
-
-
-
 module "openvpn" {
-  source = "github.com/tieto-cem/terraform-aws-openvpn?ref=v1.3.0" # update to the newset release tag
-
+  source            = "github.com/tieto-cem/terraform-aws-openvpn?ref=v1.3.0"
   name              = "OpenVPN"
   ami               = var.openvpn.ami
   region            = var.region
@@ -79,4 +64,48 @@ module "openvpn" {
   volume_tags = {
     Name = "OpenVPN"
   }
+}
+
+
+resource "aws_security_group" "private_network_sg" {
+
+  name = "private_network_sg"
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.cidrList.public_sub.cidr]
+  }
+
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  vpc_id = module.vpc.vpc_id
+
+  tags = {
+    Name = "private_network_sg"
+  }
+
+}
+
+resource "aws_instance" "worker_node" {
+
+  count = var.worker_node.nodes_count
+
+  ami           = var.worker_node.ami
+  instance_type = var.worker_node.instance_type
+  key_name      = var.aws_key_name
+  subnet_id     = module.vpc.private_subnets[0]
+
+  vpc_security_group_ids = [aws_security_group.private_network_sg.id]
+
+  tags = {
+    Name = "worker_node ${count.index}"
+  }
+
 }
