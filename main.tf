@@ -109,3 +109,39 @@ resource "aws_instance" "worker_node" {
   }
 
 }
+
+
+
+resource "null_resource" "openvpn_provisioner" {
+  triggers = {
+    public_ip = module.openvpn.public_ip
+  }
+  connection {
+    host        = module.openvpn.public_ip
+    agent       = true
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(var.aws_key_path)
+  }
+
+
+  provisioner "remote-exec" {
+    inline = [
+      "curl -O https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh",
+      "chmod +x /home/ubuntu/openvpn-install.sh",
+      "sudo AUTO_INSTALL=y ./openvpn-install.sh"
+    ]
+  }
+}
+
+
+resource "null_resource" "client_conf" {
+  triggers = {
+    id = null_resource.openvpn_provisioner.id
+  }
+
+  provisioner "local-exec" {
+    command = "yes yes | ssh-keyscan -t rsa,ed25519 ${module.openvpn.public_ip} >> ~/.ssh/known_hosts; scp -i ${var.aws_key_path} ubuntu@${module.openvpn.public_ip}:/home/ubuntu/client.ovpn ."
+  }
+
+}
