@@ -3,3 +3,4 @@
 *.tfvars
 .terraform.*
 **/.terraform/*
+**/ovpn_config/*

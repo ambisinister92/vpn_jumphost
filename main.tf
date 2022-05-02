@@ -93,7 +93,7 @@ resource "aws_security_group" "private_network_sg" {
 
 }
 
-resource "aws_instance" "worker_node" {
+resource "aws_instance" "worker_nodez" {
 
   count = var.worker_node.nodes_count
 
@@ -105,7 +105,7 @@ resource "aws_instance" "worker_node" {
   vpc_security_group_ids = [aws_security_group.private_network_sg.id]
 
   tags = {
-    Name = "worker_node ${count.index}"
+    Name = "worker_node ${count.index + 1}"
   }
 
 }
@@ -140,8 +140,13 @@ resource "null_resource" "client_conf" {
     id = null_resource.openvpn_provisioner.id
   }
 
+
   provisioner "local-exec" {
-    command = "yes yes | ssh-keyscan -t rsa,ed25519 ${module.openvpn.public_ip} >> ~/.ssh/known_hosts; scp -i ${var.aws_key_path} ubuntu@${module.openvpn.public_ip}:/home/ubuntu/client.ovpn ."
+    command = "yes yes | ssh-keyscan -t rsa,ed25519 ${module.openvpn.public_ip} >> ~/.ssh/known_hosts; mkdir ovpn_config; scp -i ${var.aws_key_path} ubuntu@${module.openvpn.public_ip}:/home/ubuntu/client.ovpn ./ovpn_config; echo \"Connect to VPN:\nsudo openvpn --config ./ovpn_config/client.ovpn --daemon\nConnect to openvpn server:\nssh-add ${var.aws_key_path}\nssh -Ai ${var.aws_key_path} ubuntu@10.8.0.1\nList of private sub nodes:\n%{for ip in aws_instance.worker_nodez.*.private_ip}server ${ip}\n%{endfor}\">>./ovpn_config/info.txt; cat ./ovpn_config/info.txt"
   }
 
+  provisioner "local-exec" {
+    when    = destroy
+    command = "if ls|grep ovpn_config; then  rm -rf ./ovpn_config; fi"
+  }
 }
